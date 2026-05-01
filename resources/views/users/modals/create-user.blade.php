@@ -13,7 +13,7 @@
                 </div>
                 <div class="col-md-6 mb-3">
                     <label>Email</label>
-                    <input type="email" id="email" class="form-control" name="email" required>
+                    <input type="email" id="email" class="form-control" name="email" required pattern="[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$">
                 </div>
                 <div class="col-md-6 mb-3">
                     <label>Password</label>
@@ -43,7 +43,7 @@
                 </div>
                 <div class="col-md-6 mb-3">
                     <label>Phone</label>
-                    <input type="text" id="phone" class="form-control" name="phone_number" required>
+                    <input type="text" id="phone" class="form-control" name="phone_number" required  pattern="[0-9]{10}">
                 </div>
                 <div class="col-md-6 mb-3">
                     <label>Date of Joining</label>

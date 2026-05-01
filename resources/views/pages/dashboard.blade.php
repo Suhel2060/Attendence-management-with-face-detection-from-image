@@ -13,7 +13,7 @@
                         </div>
                         <div class="ms-3">
                             <h6 class="text-muted mb-1">Total Employees</h6>
-                            <h3 class="mb-0">245</h3>
+                            <h3 class="mb-0">0</h3>
                         </div>
                     </div>
                     <div class="mt-3">
@@ -36,7 +36,7 @@
                         </div>
                         <div class="ms-3">
                             <h6 class="text-muted mb-1">Departments</h6>
-                            <h3 class="mb-0">14</h3>
+                            <h3 class="mb-0">4</h3>
                         </div>
                     </div>
                 </div>

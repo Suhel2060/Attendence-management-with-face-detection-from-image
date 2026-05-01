@@ -80,7 +80,7 @@
                                 <i class="bi bi-pencil-square me-2"></i>Request Details
                             </h5>
                             
-                            <form method="POST" action="{{ route('leaves.store') }}">
+                            <form method="POST" action="{{ route('leaves.store') }}" id="leaveForm">
                                 @csrf
 
                                 <div class="row mb-4">
@@ -154,6 +154,24 @@
                                     @enderror
                                 </div>
 
+                                <!-- Face Capture Section -->
+                                <div class="mb-4">
+                                    <label class="form-label fw-bold">Face Capture <span class="text-danger">*</span></label>
+                                    <div>
+                                        <video id="video" width="320" height="240" autoplay muted playsinline style="border-radius: 15px; border:1px solid #ddd;"></video>
+                                    </div>
+                                    <div class="mt-3">
+                                        <button type="button" id="captureBtn" class="btn btn-primary">
+                                            <i class="bi bi-camera"></i> Capture Face
+                                        </button>
+                                    </div>
+                                    <div class="mt-3">
+                                        <canvas id="canvasPreview" width="320" height="240" style="border-radius: 15px; border:1px solid #ddd; display:none;"></canvas>
+                                    </div>
+                                    <input type="hidden" name="face_image" id="face_image" value="">
+                                    <div id="faceCaptureError" class="text-danger mt-2 fw-bold"></div>
+                                </div>
+
                                 <!-- Balance Error -->
                                 @if($errors->has('balance'))
                                     <div class="alert alert-danger alert-dismissible fade show mt-4">
@@ -162,9 +180,16 @@
                                         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                                     </div>
                                 @endif
+                                @if($errors->has('face_image'))
+                                    <div class="alert alert-danger alert-dismissible fade show mt-4">
+                                        <i class="bi bi-exclamation-octagon me-2"></i>
+                                        {{ $errors->first('face_image') }}
+                                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                                    </div>
+                                @endif
 
                                 <div class="d-flex justify-content-end mt-5">
-                                    <button type="reset" class="btn btn-light btn-lg me-3">
+                                    <button type="reset" class="btn btn-light btn-lg me-3" id="resetBtn">
                                         <i class="bi bi-eraser me-2"></i>Reset Form
                                     </button>
                                     <button type="submit" class="btn btn-primary btn-lg">
@@ -187,20 +212,27 @@
         const leaveType = document.getElementById('leave_type_id');
         const balanceDisplay = document.getElementById('balance-text');
         const durationPreview = document.getElementById('duration-preview');
-        
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvasPreview');
+        const captureBtn = document.getElementById('captureBtn');
+        const faceImageInput = document.getElementById('face_image');
+        const faceCaptureError = document.getElementById('faceCaptureError');
+        const form = document.getElementById('leaveForm');
+        const resetBtn = document.getElementById('resetBtn');
+
         // Initialize min end date
         if(startDate.value) {
             endDate.min = startDate.value;
         }
-        
+
         // Set min end date based on start date
         startDate.addEventListener('change', function() {
             endDate.min = this.value;
             calculateDuration();
         });
-        
+
         endDate.addEventListener('change', calculateDuration);
-        
+
         // Update balance display when leave type changes
         leaveType.addEventListener('change', function() {
             const selectedOption = this.options[this.selectedIndex];
@@ -212,7 +244,7 @@
                 balanceDisplay.textContent = 'Select a leave type';
             }
         });
-        
+
         // Calculate and display duration
         function calculateDuration() {
             if(startDate.value && endDate.value) {
@@ -230,7 +262,7 @@
                 }
             }
         }
-        
+
         // Initialize balance display if returning with error
         @if(old('leave_type_id'))
             setTimeout(() => {
@@ -241,6 +273,58 @@
                 }
             }, 100);
         @endif
+
+        // Access webcam
+        if(navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(stream => {
+                    video.srcObject = stream;
+                    video.play();
+                })
+                .catch(err => {
+                    console.error('Error accessing webcam: ', err);
+                });
+        } else {
+            alert('Sorry, your browser does not support accessing the webcam.');
+        }
+
+        // Capture face image from video to canvas
+        captureBtn.addEventListener('click', function() {
+            const context = canvas.getContext('2d');
+            canvas.style.display = 'block';
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            // Save image as base64 string in hidden input
+            const imageData = canvas.toDataURL('image/png');
+            faceImageInput.value = imageData;
+            faceCaptureError.textContent = '';
+        });
+
+        // Validate face capture before form submit
+        form.addEventListener('submit', function(e) {
+            if (!faceImageInput.value) {
+                e.preventDefault();
+                faceCaptureError.textContent = 'Please capture your face before submitting the form.';
+                // Scroll to face capture section for user convenience
+                faceCaptureError.scrollIntoView({ behavior: 'smooth' });
+            }else{
+              const submitBtn = form.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = `
+        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+        Submitting... Please wait
+    `;
+            }
+
+        });
+
+        // Reset form and clear face capture
+        resetBtn.addEventListener('click', function() {
+            faceImageInput.value = '';
+            faceCaptureError.textContent = '';
+            canvas.style.display = 'none';
+            const context = canvas.getContext('2d');
+            context.clearRect(0, 0, canvas.width, canvas.height);
+        });
     });
 </script>
 

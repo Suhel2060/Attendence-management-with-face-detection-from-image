@@ -40,6 +40,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/leaves/create', [LeaveController::class, 'create'])->name('leaves.create');
     Route::post('/leaves', [LeaveController::class, 'store'])->name('leaves.store');
     Route::get('/leaves', [LeaveController::class, 'index'])->name('leaves.index');
+    Route::get('/authattendence', [AttendenceController::class,'getAuthattendence']);
 
 
 Route::get('/profile',[ProfileController::class,'index']);

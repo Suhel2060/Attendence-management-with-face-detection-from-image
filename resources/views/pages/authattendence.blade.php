@@ -1,19 +1,19 @@
-@extends('layouts.attendence')
+@extends('layouts.app')
 
 @section('title', 'My Attendance')
 
 @section('content')
 <div class="container py-5">
     {{-- Header Section --}}
-    <div class="d-flex justify-content-between align-items-center mb-4">
+    {{-- <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="fw-bold text-primary">My Attendance</h2>
-        {{-- <button id="clockButton" class="btn btn-lg btn-success shadow-sm">
+        <button id="clockButton" class="btn btn-lg btn-success shadow-sm">
             <i class="fas fa-clock me-2"></i>{{ $clockbutton }}
-        </button> --}}
-    </div>
+        </button>
+    </div> --}}
 
     {{-- Attendance Table --}}
-    {{-- <div class="card border-0 shadow-lg overflow-hidden" id="attendanceTable">
+    <div class="card border-0 shadow-lg overflow-hidden" id="attendanceTable">
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
                 <thead class="bg-light">
@@ -46,10 +46,10 @@
                 </tbody>
             </table>
         </div>
-    </div> --}}
+    </div>
 </div>
 
-{{-- Camera Modal --}}
+{{-- Camera Modal
 <div id="cameraSection" class="card shadow-lg border-0 mx-auto" style="display:block; max-width:480px;">
     <div class="card-header bg-primary text-white">
         <h5 class="card-title mb-0">Capture Verification Photo</h5>
@@ -73,7 +73,7 @@
             </button>
         </div>
     </div>
-</div>
+</div> --}}
 
 <style>
     #cameraSection {
@@ -91,7 +91,7 @@
     }
 </style>
 
-<script>
+{{-- <script>
 document.addEventListener('DOMContentLoaded', async () => {
     const elements = {
         cameraSection: document.getElementById('cameraSection'),
@@ -185,5 +185,5 @@ document.addEventListener('DOMContentLoaded', async () => {
         elements.canvas.getContext('2d').clearRect(0, 0, elements.canvas.width, elements.canvas.height);
     });
 });
-</script>
+</script> --}}
 @endsection

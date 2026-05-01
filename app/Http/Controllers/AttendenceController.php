@@ -14,31 +14,52 @@ class AttendenceController extends Controller
 {
     public function index()
     {
-        $user_id=Auth::user()->id;
-        $user=User::find($user_id);
+       // $user_id=Auth::user()->id;
+       // $user=User::find($user_id);
         // 1) Get the logged-in user’s employee_id
-        $employeeId = Auth::user()->employee_id;
+      //  $employeeId = Auth::user()->employee_id;
 
         // 2) Today’s date (Y-m-d)
+        // $today = Carbon::today()->toDateString();
+
+        // $attendance = Attendence::where('employee_id', $employeeId)
+        //     ->where('date', $today)
+        //     ->first();
+        // if (! $attendance) {
+        //     $clockbutton = 'Clock IN';
+        // } elseif (! $attendance->check_out) {
+        //     $clockbutton = 'Clock OUT';
+        // } else {
+        //     $clockbutton = 'Clock IN';
+        // }
+
+        // 5) Get all records for this user
+        // $records = Attendence::where('employee_id', $employeeId)
+        //     ->orderByDesc('date')
+        //     ->get();
+
+        $clockbutton = 'Attendence';
+
+        return view('pages.attendence', compact( 'clockbutton'));
+    }
+    public function getAuthattendence()
+    {
+       $user_id=Auth::user()->id;
+       $user=User::find($user_id);
+       $employeeId = Auth::user()->employee_id;
+
         $today = Carbon::today()->toDateString();
 
         $attendance = Attendence::where('employee_id', $employeeId)
             ->where('date', $today)
             ->first();
-        if (! $attendance) {
-            $clockbutton = 'Clock IN';
-        } elseif (! $attendance->check_out) {
-            $clockbutton = 'Clock OUT';
-        } else {
-            $clockbutton = 'Clock IN';
-        }
 
-        // 5) Get all records for this user
         $records = Attendence::where('employee_id', $employeeId)
             ->orderByDesc('date')
             ->get();
 
-        return view('pages.attendence', compact('records', 'clockbutton','user'));
+
+        return view('pages.authattendence', compact( 'records','attendance','user'));
     }
 
     public function viewAttendence(Request $request)
@@ -73,11 +94,6 @@ class AttendenceController extends Controller
 
 
 
-        $employeeId = Auth::user()->employee_id;
-        $today      = Carbon::today()->toDateString();
-        $attendance = Attendence::firstOrNew(
-            ['employee_id' => $employeeId, 'date' => $today]
-        );
         // if($attendance->exists&&!is_null($attendance->check_out)){
         //     return response()->json([
         //         'message' => 'You have already clocked in and out today.'
@@ -89,18 +105,15 @@ class AttendenceController extends Controller
         $imageBinary = base64_decode($base64Data);
 
         $extension = strpos($type, 'jpeg') !== false ? 'jpg' : 'png';
-        $filename =  $employeeId . '.' . $extension;
-        $path = 'attendance_photos/' . $employeeId . '/' . $filename;
-        if (Storage::disk('public')->exists($path)) {
-            Storage::disk('public')->delete($path);
-        }
+        $filename =   "Attendance".Carbon::now()->format('Y-m-d').rand(1,1000000). '.' . $extension;
+        $path = 'attendance_photos/' . $filename;
         Storage::disk('public')->put($path, $imageBinary);
-
 
         $imagePath = public_path('storage/' . $path);
         $imagePath = str_replace('/', '\\', $imagePath);
         
-        $pythonScript = 'F:\Attendance Management System\face_detection_python\recognize.py';
+        // $pythonScript = 'F:\Attendance Management System\face_detection_python\recognize.py';
+        $pythonScript = 'F:\Attendance Management System\face_detection_python\recognize-version2.py';
 
         // Prepare the command, redirect stderr to stdout to capture errors
         $command = sprintf(
@@ -109,6 +122,7 @@ class AttendenceController extends Controller
             $imagePath
         );
 
+
         // dd($command);
         
         // Execute the command
@@ -116,7 +130,9 @@ class AttendenceController extends Controller
         
         // Convert output array to string
         $outputString = implode("\n", $output);
-        
+                if (Storage::disk('public')->exists($path)) {
+            Storage::disk('public')->delete($path);
+        }
         if ($returnVar !== 0) {
             return response()->json([
                 'error' => 'Python script error',
@@ -126,16 +142,23 @@ class AttendenceController extends Controller
         }
         
         $response = json_decode($outputString, true);
-        // dump($response);
+        // dd($response);
         if (json_last_error() !== JSON_ERROR_NONE) {
             return response()->json([
                 'error' => 'Invalid JSON from Python script',
                 'output' => $outputString,
             ], 500);
         }
+
         if(isset($response['success'])&&$response['success']==true){
             $employee_id=$response['results'][0]['emp_id'];
-            if(        $employeeId = Auth::user()->employee_id==$employee_id){
+            $employee=User::where('employee_id',$employee_id)->first();
+            if(        $employee){
+                $employeeId = $employee->employee_id;
+                $today      = Carbon::today()->toDateString();
+                $attendance = Attendence::firstOrNew(
+                    ['employee_id' => $employeeId, 'date' => $today]
+                );
                 if (! $attendance->exists) {
                     $attendance->status    = 'Present';
                     $attendance->date    = $today;
@@ -151,7 +174,7 @@ class AttendenceController extends Controller
                 $attendance->save();
 
                 return response()->json([
-                    'message'    => 'Attendance recorded.',
+                    'message'    => 'Attendance recorded for Employee ID '.$employee->employee_id."( ".$employee->name." )",
                     'check_in'   => $attendance->check_in,
                     'check_out'  => $attendance->check_out,
                     'date'       => $attendance->date,

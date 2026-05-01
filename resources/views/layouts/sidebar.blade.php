@@ -40,7 +40,7 @@
         @endif
 
         <div class="user-section border-top border-dark">
-            <a href="/attendence" class="list-group-item list-group-item-action bg-dark text-white hover-lift p-3 d-flex align-items-center">
+            <a href="/authattendence" class="list-group-item list-group-item-action bg-dark text-white hover-lift p-3 d-flex align-items-center">
                 <i class="bi bi-clock-history me-3" style="font-size: 1.2rem;"></i>
                 My Attendence
             </a>
