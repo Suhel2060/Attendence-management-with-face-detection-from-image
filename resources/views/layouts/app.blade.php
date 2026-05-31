@@ -24,6 +24,11 @@
             --bg-gradient: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
         }
 
+        html, body {
+            overflow-x: hidden;
+            width: 100%;
+        }
+
         body {
             background: var(--bg-gradient);
             min-height: 100vh;
@@ -32,6 +37,8 @@
         .wrapper {
             display: flex;
             min-height: 100vh;
+            width: 100%;
+            overflow-x: hidden;
             background: rgba(255, 255, 255, 0.95);
         }
 
@@ -160,5 +167,6 @@
             });
         });
     </script>
+    @yield('scripts')
 </body>
 </html>

@@ -10,6 +10,7 @@ use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 
 class UserController extends Controller
@@ -58,10 +59,6 @@ class UserController extends Controller
             $imagePath = $image->storeAs('images', $newName, 'public');
             $user->image = $imagePath;
             $user->save();
-
-
-            $newKnownFaces=$user->employee_id.'.'.$image->getClientOriginalExtension();
-            $image->storeAs('known_faces', $newKnownFaces, 'public');
 
             DB::commit();
             return response()->json([
@@ -115,24 +112,14 @@ class UserController extends Controller
 
             // Handle image replacement
             if ($request->hasFile('image')) {
-                // Delete previous image
                 if ($user->image && Storage::disk('public')->exists($user->image)) {
                     Storage::disk('public')->delete($user->image);
-                    $knownfaces=explode('.', $user->image);
-                    $knownFaceimage=$user->employee_id.'.'.$knownfaces[1];
-                    if (Storage::disk('public')->exists('known_faces/'.$knownFaceimage)) {
-                        Storage::disk('public')->delete('known_faces/'.$knownFaceimage);
-                    }
                 }
-                // Store new image
                 $image = $request->file('image');
                 $newName = Str::random(20) . '.' . $image->getClientOriginalExtension();
                 $imagePath = $image->storeAs('images', $newName, 'public');
                 $user->image = $imagePath;
                 $user->save();
-
-                $newKnownFaces=$user->employee_id.'.'.$image->getClientOriginalExtension();
-                $image->storeAs('known_faces', $newKnownFaces, 'public');
             }
 
             DB::commit();
@@ -152,20 +139,17 @@ class UserController extends Controller
         try {
             DB::beginTransaction();
             $user = User::findOrFail($id);
+            $empId = $user->employee_id;
 
-            // Delete image file if exists
             if ($user->image && Storage::disk('public')->exists($user->image)) {
                 Storage::disk('public')->delete($user->image);
             }
-            $knownfaces=explode('.', $user->image);
-            $knownFaceimage=$user->employee_id.'.'.$knownfaces[1];
-            if (Storage::disk('public')->exists('known_faces/'.$knownFaceimage)) {
-                Storage::disk('public')->delete('known_faces/'.$knownFaceimage);
-            }
 
-            Attendence::where('employee_id', $user->employee_id)->delete();
-            Leaves::where('employee_id', $user->employee_id)->delete();
-            
+            Attendence::where('employee_id', $empId)->delete();
+            Leaves::where('employee_id', $empId)->delete();
+
+            Http::timeout(5)->delete(config('services.face_api.url') . '/api/enroll/' . urlencode($empId));
+            Storage::disk('public')->deleteDirectory("enrollment/{$empId}");
 
             $user->delete();
             DB::commit();

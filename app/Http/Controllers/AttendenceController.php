@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\Attendence;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -14,33 +15,68 @@ class AttendenceController extends Controller
 {
     public function index()
     {
-       // $user_id=Auth::user()->id;
-       // $user=User::find($user_id);
-        // 1) Get the logged-in user’s employee_id
-      //  $employeeId = Auth::user()->employee_id;
+        return view('pages.attendence');
+    }
 
-        // 2) Today’s date (Y-m-d)
-        // $today = Carbon::today()->toDateString();
+    public function identify(Request $request)
+    {
+        $data = $request->validate([
+            'image' => [
+                'required',
+                'regex:/^data:image\/(jpeg|png);base64,[A-Za-z0-9\/+=]+$/'
+            ],
+        ]);
 
-        // $attendance = Attendence::where('employee_id', $employeeId)
-        //     ->where('date', $today)
-        //     ->first();
-        // if (! $attendance) {
-        //     $clockbutton = 'Clock IN';
-        // } elseif (! $attendance->check_out) {
-        //     $clockbutton = 'Clock OUT';
-        // } else {
-        //     $clockbutton = 'Clock IN';
-        // }
+        $imageData = $data['image'];
+        [, $base64Data] = explode(',', explode(';', $imageData)[1]);
+        $imageBinary = base64_decode($base64Data);
 
-        // 5) Get all records for this user
-        // $records = Attendence::where('employee_id', $employeeId)
-        //     ->orderByDesc('date')
-        //     ->get();
+        $response = Http::timeout(config('services.face_api.timeout', 10))
+            ->attach('image', $imageBinary, 'capture.jpg')
+            ->post(config('services.face_api.url') . '/api/recognize');
 
-        $clockbutton = 'Attendence';
+        if (!$response->successful()) {
+            return response()->json([
+                'message' => 'Recognition service unavailable.'
+            ], 503);
+        }
 
-        return view('pages.attendence', compact( 'clockbutton'));
+        $result = $response->json();
+
+        if ($result['status'] !== 'recognized') {
+            return response()->json([
+                'recognized' => false,
+                'message' => $result['message'] ?? 'Face not recognized.'
+            ], 200);
+        }
+
+        $employee = User::where('employee_id', $result['student_id'])->first();
+        if (!$employee) {
+            return response()->json([
+                'recognized' => false,
+                'message' => 'Face recognized but no employee record found.'
+            ], 200);
+        }
+
+        $today = Carbon::today()->toDateString();
+        $attendance = Attendence::where('employee_id', $employee->employee_id)
+            ->where('date', $today)
+            ->first();
+
+        if (!$attendance) {
+            $action = 'clock_in';
+        } elseif (is_null($attendance->check_out)) {
+            $action = 'clock_out';
+        } else {
+            $action = 'finished';
+        }
+
+        return response()->json([
+            'recognized' => true,
+            'employee_id' => $employee->employee_id,
+            'name' => $employee->name,
+            'action' => $action,
+        ]);
     }
     public function getAuthattendence()
     {
@@ -92,106 +128,73 @@ class AttendenceController extends Controller
             ],
         ]);
 
-
-
-        // if($attendance->exists&&!is_null($attendance->check_out)){
-        //     return response()->json([
-        //         'message' => 'You have already clocked in and out today.'
-        //     ], 400);
-        // }
         $imageData = $data['image'];
-        [$type, $base64Data] = explode(';', $imageData);
-        [, $base64Data] = explode(',', $base64Data);
+        [, $base64Data] = explode(',', explode(';', $imageData)[1]);
         $imageBinary = base64_decode($base64Data);
 
-        $extension = strpos($type, 'jpeg') !== false ? 'jpg' : 'png';
-        $filename =   "Attendance".Carbon::now()->format('Y-m-d').rand(1,1000000). '.' . $extension;
-        $path = 'attendance_photos/' . $filename;
-        Storage::disk('public')->put($path, $imageBinary);
+        $recognizeResponse = Http::timeout(config('services.face_api.timeout', 10))
+            ->attach('image', $imageBinary, 'capture.jpg')
+            ->post(config('services.face_api.url') . '/api/recognize');
 
-        $imagePath = public_path('storage/' . $path);
-        $imagePath = str_replace('/', '\\', $imagePath);
-        
-        // $pythonScript = 'F:\Attendance Management System\face_detection_python\recognize.py';
-        $pythonScript = 'F:\Attendance Management System\face_detection_python\recognize-version2.py';
-
-        // Prepare the command, redirect stderr to stdout to capture errors
-        $command = sprintf(
-            'python "%s" recognize "%s" 2>&1',
-            $pythonScript,
-            $imagePath
-        );
-
-
-        // dd($command);
-        
-        // Execute the command
-        exec($command, $output, $returnVar);
-        
-        // Convert output array to string
-        $outputString = implode("\n", $output);
-                if (Storage::disk('public')->exists($path)) {
-            Storage::disk('public')->delete($path);
-        }
-        if ($returnVar !== 0) {
+        if (!$recognizeResponse->successful()) {
             return response()->json([
-                'error' => 'Python script error',
-                'output' => $outputString,
-                'return_code' => $returnVar,
-            ], 500);
-        }
-        
-        $response = json_decode($outputString, true);
-        // dd($response);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            return response()->json([
-                'error' => 'Invalid JSON from Python script',
-                'output' => $outputString,
-            ], 500);
+                'message' => 'Face recognition service unavailable. Please try again.'
+            ], 503);
         }
 
-        if(isset($response['success'])&&$response['success']==true){
-            $employee_id=$response['results'][0]['emp_id'];
-            $employee=User::where('employee_id',$employee_id)->first();
-            if(        $employee){
-                $employeeId = $employee->employee_id;
-                $today      = Carbon::today()->toDateString();
-                $attendance = Attendence::firstOrNew(
-                    ['employee_id' => $employeeId, 'date' => $today]
-                );
-                if (! $attendance->exists) {
-                    $attendance->status    = 'Present';
-                    $attendance->date    = $today;
-                    $attendance->check_in  = Carbon::now()->format('H:i:s');
-                    // leave check_out null
-                } elseif (is_null($attendance->check_out)) {
-                    $attendance->check_out = Carbon::now()->format('H:i:s');
-                } else {
-                    return response()->json([
-                        'message' => 'You have already clocked in and out today.'
-                    ], 400);
-                }
-                $attendance->save();
+        $result = $recognizeResponse->json();
 
-                return response()->json([
-                    'message'    => 'Attendance recorded for Employee ID '.$employee->employee_id."( ".$employee->name." )",
-                    'check_in'   => $attendance->check_in,
-                    'check_out'  => $attendance->check_out,
-                    'date'       => $attendance->date,
-                ]);
-            }else{
-                return response()->json([
-                    'message' => 'You are not authozied to attendence'
-                ], 400);
-            }
-        }else{
+        if ($result['status'] !== 'recognized') {
+            $messages = [
+                'unknown' => 'Face not recognized. Please ensure you are enrolled.',
+                'no_face' => 'No face detected. Please look at the camera.',
+                'no_enrollments' => 'No enrolled faces in the system. Contact admin.',
+            ];
+            $statusCodes = [
+                'unknown' => 401,
+                'no_face' => 400,
+                'no_enrollments' => 400,
+            ];
+            $msg = $messages[$result['status']] ?? 'Unable to process attendance.';
+            return response()->json(['message' => $msg], $statusCodes[$result['status']] ?? 500);
+        }
+
+        $employee = User::where('employee_id', $result['student_id'])->first();
+        if (!$employee) {
             return response()->json([
-                'message' => 'You are not authozied to attendence'
+                'message' => 'Face recognized but no employee record was found.'
             ], 400);
         }
 
+        $today = Carbon::today()->toDateString();
+        $attendance = Attendence::firstOrNew(
+            ['employee_id' => $employee->employee_id, 'date' => $today]
+        );
 
+        if ($attendance->exists && !is_null($attendance->check_out)) {
+            return response()->json([
+                'message' => $employee->name . ' has already clocked in and out today.'
+            ], 400);
+        }
 
+        if (!$attendance->exists) {
+            $attendance->status = 'Present';
+            $attendance->date = $today;
+            $attendance->check_in = Carbon::now()->format('H:i:s');
+        } elseif (is_null($attendance->check_out)) {
+            $attendance->check_out = Carbon::now()->format('H:i:s');
+        }
+
+        $attendance->save();
+
+        return response()->json([
+            'message'   => 'Attendance recorded for ' . $employee->name,
+            'name'      => $employee->name,
+            'check_in'  => $attendance->check_in,
+            'check_out' => $attendance->check_out,
+            'date'      => $attendance->date,
+            'action'    => is_null($attendance->check_out) ? 'clock_in' : 'clock_out',
+        ]);
     }
 
     public function getAttendence($id)

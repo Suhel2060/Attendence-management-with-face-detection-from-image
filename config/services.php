@@ -30,4 +30,9 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    'face_api' => [
+        'url' => env('FACE_API_URL', 'http://localhost:8001'),
+        'timeout' => 10,
+    ],
+
 ];
