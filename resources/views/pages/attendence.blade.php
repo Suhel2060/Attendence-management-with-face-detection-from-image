@@ -2,14 +2,20 @@
 
 @section('title', 'My Attendance')
 
+@php
+$isPublic = request()->is('attendencethis');
+@endphp
+
 @section('content')
 <div class="container py-5">
     {{-- Header Section --}}
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="fw-bold text-primary">My Attendance</h2>
-        {{-- <button id="clockButton" class="btn btn-lg btn-success shadow-sm">
-            <i class="fas fa-clock me-2"></i>{{ $clockbutton }}
-        </button> --}}
+        @if($isPublic)
+            <a href="/login" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i> Back to Login
+            </a>
+        @endif
     </div>
 
     {{-- Attendance Table --}}
@@ -144,7 +150,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         try {
             const imageBase64 = captureFrame();
-            const res = await fetch('{{ route("attendance.identify") }}', {
+            const res = await fetch('{{ $isPublic ? "/attendencethis/identify" : route("attendance.identify") }}', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -156,6 +162,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             const data = await res.json();
 
             if (data.recognized) {
+                clearInterval(identifyInterval);
+                identifyInterval = null;
                 identifiedEmployee = data.employee_id;
                 identifiedAction = data.action;
                 elements.welcomeName.textContent = data.name;
@@ -201,7 +209,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         try {
             const imageBase64 = captureFrame();
-            const res = await fetch('{{ route("attendance.store") }}', {
+            const res = await fetch('{{ $isPublic ? "/attendencethis" : route("attendance.store") }}', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -303,7 +311,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     };
 
-    let identifyTimeout = null;
+    let identifyInterval = null;
 
     const startFaceDetection = () => {
         const detectFrame = () => {
@@ -347,14 +355,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                         faceDetected = true;
                         speak("Face detected. Identifying...");
                         elements.faceStatus.innerHTML = '<span class="badge bg-info"><i class="fas fa-spinner fa-spin me-1"></i>Identifying...</span>';
-                        identifyTimeout = setTimeout(identifyFace, 500);
+                        identifyInterval = setInterval(identifyFace, 2000);
+                        identifyFace();
                     }
                 } else {
                     if (faceDetected) {
                         faceDetected = false;
                         identifiedEmployee = null;
                         identifiedAction = null;
-                        clearTimeout(identifyTimeout);
+                        clearInterval(identifyInterval);
+                        identifyInterval = null;
                         speak("Face not detected. Please position yourself in front of camera");
                         elements.faceStatus.innerHTML = '<span class="badge bg-warning text-dark"><i class="fas fa-exclamation-triangle me-1"></i>No face detected</span>';
                         elements.welcomeSection.classList.add('d-none');

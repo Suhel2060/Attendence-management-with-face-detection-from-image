@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Exception;
 use App\Models\User;
+use App\Services\FaceRecognitionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
@@ -18,7 +19,7 @@ class EnrollmentController extends Controller
         return view('enrollment.index', compact('employees', 'enrolled', 'enrolledImages'));
     }
 
-    public function enroll(Request $request)
+    public function enroll(Request $request, FaceRecognitionService $faceService)
     {
         $employeeId = $request->employee_id;
         $storageDir = "enrollment/{$employeeId}";
@@ -60,20 +61,26 @@ class EnrollmentController extends Controller
             }
         }
 
-        $faceApiUrl = config('services.face_api.url');
-        $httpRequest = Http::timeout(config('services.face_api.timeout', 10));
-
+        $imagePaths = [];
         foreach ($filenamesToKeep as $name) {
             $fullPath = Storage::disk('public')->path("{$storageDir}/{$name}");
             if (file_exists($fullPath)) {
-                $httpRequest->attach('images', file_get_contents($fullPath), $name);
+                $imagePaths[] = $fullPath;
             }
         }
 
-        $response = $httpRequest->post("$faceApiUrl/api/enroll?student_id=" . urlencode($employeeId));
+        $result = $faceService->enroll($employeeId, $imagePaths);
 
-        if (!$response->successful()) {
-            return response()->json(['error' => 'Enrollment failed: ' . ($response->json()['detail'] ?? 'Unknown error')], 422);
+        if (($result['status'] ?? '') === 'error') {
+            $errorMsg = 'Enrollment failed on one or both systems.';
+            if (isset($result['results'])) {
+                foreach ($result['results'] as $key => $res) {
+                    if (isset($res['detail'])) {
+                        $errorMsg .= " {$key}: {$res['detail']}";
+                    }
+                }
+            }
+            return response()->json(['error' => $errorMsg], 422);
         }
 
         if ($request->has('keep_images')) {
@@ -86,31 +93,34 @@ class EnrollmentController extends Controller
             }
         }
 
-        return response()->json(['message' => 'Employee enrolled successfully.']);
+        return response()->json(['message' => 'Employee enrolled successfully on both systems.']);
     }
 
-    public function destroy($employee_id)
+    public function destroy($employee_id, FaceRecognitionService $faceService)
     {
-        $faceApiUrl = config('services.face_api.url');
-        $response = Http::delete("$faceApiUrl/api/enroll/" . urlencode($employee_id));
+        $results = $faceService->removeEnrollment($employee_id);
 
         Storage::disk('public')->deleteDirectory("enrollment/{$employee_id}");
 
-        if ($response->successful()) {
-            return redirect()->route('enrollment.index')->with('success', "Employee $employee_id removed from face recognition.");
+        $hasSuccess = false;
+        foreach ($results as $name => $result) {
+            if (($result['status'] ?? '') !== 'error') {
+                $hasSuccess = true;
+            }
         }
 
-        return redirect()->route('enrollment.index')->with('error', 'Failed to remove enrollment.');
+        if ($hasSuccess) {
+            return redirect()->route('enrollment.index')->with('success', "Employee $employee_id removed from face recognition (both systems).");
+        }
+
+        return redirect()->route('enrollment.index')->with('error', 'Failed to remove enrollment from either system.');
     }
 
     private function getEnrolledFromFastAPI()
     {
         try {
-            $faceApiUrl = config('services.face_api.url');
-            $response = Http::timeout(3)->get("$faceApiUrl/api/enrolled");
-            if ($response->successful()) {
-                return $response->json()['students'] ?? [];
-            }
+            $faceService = app(FaceRecognitionService::class);
+            return $faceService->getEnrolled();
         } catch (Exception $e) {
 
         }

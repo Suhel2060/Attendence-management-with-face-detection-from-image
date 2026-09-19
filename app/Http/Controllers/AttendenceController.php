@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Carbon\Carbon;
 use App\Models\User;
 use App\Models\Attendence;
+use App\Services\FaceRecognitionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
@@ -18,7 +19,7 @@ class AttendenceController extends Controller
         return view('pages.attendence');
     }
 
-    public function identify(Request $request)
+    public function identify(Request $request, FaceRecognitionService $faceService)
     {
         $data = $request->validate([
             'image' => [
@@ -31,17 +32,20 @@ class AttendenceController extends Controller
         [, $base64Data] = explode(',', explode(';', $imageData)[1]);
         $imageBinary = base64_decode($base64Data);
 
-        $response = Http::timeout(config('services.face_api.timeout', 10))
-            ->attach('image', $imageBinary, 'capture.jpg')
-            ->post(config('services.face_api.url') . '/api/recognize');
+        $result = $faceService->recognize($imageBinary);
 
-        if (!$response->successful()) {
+        if (($result['status'] ?? '') === 'error') {
             return response()->json([
                 'message' => 'Recognition service unavailable.'
             ], 503);
         }
 
-        $result = $response->json();
+        if ($result['status'] === 'ambiguous') {
+            return response()->json([
+                'recognized' => false,
+                'message' => $result['message'] ?? 'Face matches multiple people. Contact admin.'
+            ], 409);
+        }
 
         if ($result['status'] !== 'recognized') {
             return response()->json([
@@ -119,7 +123,7 @@ class AttendenceController extends Controller
         return view('pages.viewattendence',compact('attendences'));
     }
 
-    public function attendence(Request $request)
+    public function attendence(Request $request, FaceRecognitionService $faceService)
     {
         $data = $request->validate([
             'image' => [
@@ -132,28 +136,26 @@ class AttendenceController extends Controller
         [, $base64Data] = explode(',', explode(';', $imageData)[1]);
         $imageBinary = base64_decode($base64Data);
 
-        $recognizeResponse = Http::timeout(config('services.face_api.timeout', 10))
-            ->attach('image', $imageBinary, 'capture.jpg')
-            ->post(config('services.face_api.url') . '/api/recognize');
+        $result = $faceService->recognize($imageBinary);
 
-        if (!$recognizeResponse->successful()) {
+        if (($result['status'] ?? '') === 'error') {
             return response()->json([
                 'message' => 'Face recognition service unavailable. Please try again.'
             ], 503);
         }
-
-        $result = $recognizeResponse->json();
 
         if ($result['status'] !== 'recognized') {
             $messages = [
                 'unknown' => 'Face not recognized. Please ensure you are enrolled.',
                 'no_face' => 'No face detected. Please look at the camera.',
                 'no_enrollments' => 'No enrolled faces in the system. Contact admin.',
+                'ambiguous' => 'Face matches multiple people. Contact admin.',
             ];
             $statusCodes = [
                 'unknown' => 401,
                 'no_face' => 400,
                 'no_enrollments' => 400,
+                'ambiguous' => 409,
             ];
             $msg = $messages[$result['status']] ?? 'Unable to process attendance.';
             return response()->json(['message' => $msg], $statusCodes[$result['status']] ?? 500);

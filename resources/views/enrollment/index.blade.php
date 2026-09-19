@@ -464,13 +464,6 @@
                                         <tr>
                                             <td data-label="Employee">
                                                 <div class="employee-info">
-                                                    @if($user && $user->image)
-                                                        <img src="{{ asset('storage/'.$user->image) }}" class="employee-avatar">
-                                                    @else
-                                                        <span class="employee-avatar-placeholder">
-                                                            {{ $user ? substr($user->name, 0, 1) : '?' }}
-                                                        </span>
-                                                    @endif
                                                     <div>
                                                         <strong>{{ $user ? $user->name : 'Unknown' }}</strong>
                                                         <small>{{ $empId }}</small>

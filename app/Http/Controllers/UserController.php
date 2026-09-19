@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use App\Services\FaceRecognitionService;
 
 class UserController extends Controller
 {
@@ -148,7 +149,8 @@ class UserController extends Controller
             Attendence::where('employee_id', $empId)->delete();
             Leaves::where('employee_id', $empId)->delete();
 
-            Http::timeout(5)->delete(config('services.face_api.url') . '/api/enroll/' . urlencode($empId));
+            $faceService = app(FaceRecognitionService::class);
+            $faceService->removeEnrollment($empId);
             Storage::disk('public')->deleteDirectory("enrollment/{$empId}");
 
             $user->delete();

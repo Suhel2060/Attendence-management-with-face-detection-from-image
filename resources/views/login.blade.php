@@ -236,158 +236,11 @@
         font-weight: 500;
     }
     
-    /* Camera Section */
-    .camera-section {
-        flex: 1;
-        padding: 40px;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        background: white;
-        border-left: 1px solid #edf2f7;
-    }
-    
-    .camera-card {
-        max-width: 500px;
-        width: 100%;
-        margin: 0 auto;
-    }
-    
-    .camera-header {
-        text-align: center;
-        margin-bottom: 30px;
-    }
-    
-    .camera-header h3 {
-        font-size: 24px;
-        color: var(--dark);
-        margin-bottom: 10px;
-        font-weight: 700;
-    }
-    
-    .camera-header p {
-        color: var(--gray);
-    }
-    
-    .camera-preview {
-        position: relative;
-        border-radius: var(--border-radius);
-        overflow: hidden;
-        box-shadow: var(--box-shadow);
-        background: #f8f9fa;
-        margin-bottom: 25px;
-        aspect-ratio: 4 / 3;
-    }
-    
-    .camera-preview video, 
-    .camera-preview canvas {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        display: block;
-    }
-    
-    .camera-overlay {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        pointer-events: none;
-    }
-    
-    .face-indicator {
-        width: 200px;
-        height: 200px;
-        border: 3px dashed rgba(255, 255, 255, 0.5);
-        border-radius: 50%;
-        position: relative;
-    }
-    
-    .face-indicator::before {
-        content: 'Position your face here';
-        position: absolute;
-        bottom: -40px;
-        left: 50%;
-        transform: translateX(-50%);
-        color: white;
-        font-size: 14px;
-        font-weight: 500;
-        white-space: nowrap;
-    }
-    
-    .camera-actions {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 15px;
-    }
-    
-    .btn-primary {
-        background: var(--primary);
-        border: none;
-        color: white;
-    }
-    
-    .btn-primary:hover {
-        background: var(--primary-dark);
-    }
-    
-    .btn-success {
-        background: var(--success);
-        border: none;
-        color: white;
-    }
-    
-    .btn-outline-secondary {
-        background: transparent;
-        border: 2px solid #e2e8f0;
-        color: var(--gray);
-    }
-    
-    .btn-outline-secondary:hover {
-        background: #f8f9fa;
-    }
-    
-    .btn i {
-        margin-right: 8px;
-    }
-    
-    .alert {
-        padding: 12px 16px;
-        border-radius: 8px;
-        margin-top: 15px;
-        font-size: 14px;
-    }
-    
-    .alert-danger {
-        background-color: #f8d7da;
-        color: #721c24;
-        border: 1px solid #f5c6cb;
-    }
-    
-    .alert-success {
-        background-color: #d4edda;
-        color: #155724;
-        border: 1px solid #c3e6cb;
-    }
-    
-    .d-none {
-        display: none;
-    }
-    
     /* Responsive */
     @media (max-width: 992px) {
         .container {
             flex-direction: column;
             height: auto;
-        }
-        
-        .camera-section {
-            border-left: none;
-            border-top: 1px solid #edf2f7;
         }
     }
 
@@ -488,40 +341,8 @@
                 <div class="alert alert-danger d-none" id="errorMessage" role="alert"></div>
             </form>
             
-            {{-- <div class="auth-footer">
-                <a href="#forgot-password">Recover Access</a>
-            </div> --}}
-        </div>
-    </div>
-    
-    <!-- Camera Section -->
-    <div class="camera-section">
-        <div class="camera-card">
-            <div class="camera-header">
-                <h3>Attendance Verification</h3>
-                <p>Capture your photo for attendance</p>
-            </div>
-            
-            <div class="camera-preview">
-                <video id="video" autoplay muted playsinline></video>
-                <canvas id="cameraCanvas" class="d-none"></canvas>
-                <div class="camera-overlay">
-                    <div class="face-indicator"></div>
-                </div>
-            </div>
-            
-            <div class="camera-actions">
-                <button id="captureBtn" class="btn btn-primary">
-                    <i class="fas fa-camera me-2"></i>Capture
-                </button>
-                <button id="finishBtn" class="btn btn-success d-none">
-                    <i class="fas fa-check me-2"></i>
-                    <span class="submit-text">Submit</span>
-                    <span class="spinner-border spinner-border-sm d-none" role="status"></span>
-                </button>
-                <button id="cancelBtn" class="btn btn-outline-secondary">
-                    <i class="fas fa-times me-2"></i>Cancel
-                </button>
+            <div class="auth-footer">
+                <a href="/attendencethis"><i class="fas fa-camera me-1"></i> Mark Attendance</a>
             </div>
         </div>
     </div>
@@ -534,106 +355,6 @@
             'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
         }
     });
-    const elements = {
-        video: document.getElementById('video'),
-        canvas: document.getElementById('cameraCanvas'),
-        captureBtn: document.getElementById('captureBtn'),
-        finishBtn: document.getElementById('finishBtn'),
-        cancelBtn: document.getElementById('cancelBtn'),
-        errorMessage: document.getElementById('errorMessage')
-    };
-
-    let stream = null;
-    let authToken = null;
-
-    const initializeCamera = async () => {
-        try {
-            stream = await navigator.mediaDevices.getUserMedia({
-                video: {
-                    facingMode: 'user',
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
-                }
-            });
-            elements.video.srcObject = stream;
-            await elements.video.play();
-        } catch (error) {
-            showNotification("Could not access camera: " + error.message, "error");
-        }
-    };
-
-    initializeCamera();
-
-    elements.captureBtn.addEventListener('click', () => {
-        elements.canvas.width = elements.video.videoWidth;
-        elements.canvas.height = elements.video.videoHeight;
-        const ctx = elements.canvas.getContext('2d');
-        ctx.drawImage(elements.video, 0, 0, elements.canvas.width, elements.canvas.height);
-
-        elements.video.classList.add('d-none');
-        elements.canvas.classList.remove('d-none');
-        elements.captureBtn.classList.add('d-none');
-        elements.finishBtn.classList.remove('d-none');
-    });
-
-    elements.finishBtn.addEventListener('click', async () => {
-        try {
-
-            elements.finishBtn.disabled = true;
-            elements.finishBtn.querySelector('.submit-text').textContent = 'Processing...';
-            elements.finishBtn.querySelector('.fa-check').classList.add('d-none');
-            elements.finishBtn.querySelector('.spinner-border').classList.remove('d-none');
-
-            const imageData = elements.canvas.toDataURL('image/png');
-
-            const response = await $.ajax({
-                url: "/attendence",
-                method: 'POST',
-                headers: {
-                    'Authorization': 'Bearer ' + authToken,
-                    'Accept': 'application/json'
-                },
-                data: {
-                    image: imageData
-                }
-            });
-
-            showNotification(response.message || "Attendance submitted", "success");
-            resetCameraUI();
-
-        } catch (error) {
-            showNotification(error.responseJSON?.message || "Attendance failed", "error");
-            resetCameraUI();
-        } finally {
-            elements.finishBtn.disabled = false;
-            elements.finishBtn.querySelector('.submit-text').textContent = 'Submit';
-            elements.finishBtn.querySelector('.fa-check').classList.remove('d-none');
-            elements.finishBtn.querySelector('.spinner-border').classList.add('d-none');
-        }
-    });
-
-    elements.cancelBtn.addEventListener('click', () => {
-        resetCameraUI();
-    });
-
-    function resetCameraUI() {
-        if (stream) {
-            stream.getTracks().forEach(track => track.stop());
-            stream = null;
-        }
-
-        elements.video.classList.remove('d-none');
-        elements.canvas.classList.add('d-none');
-        elements.captureBtn.classList.remove('d-none');
-        elements.finishBtn.classList.add('d-none');
-
-        elements.finishBtn.disabled = false;
-        elements.finishBtn.querySelector('.submit-text').textContent = 'Submit';
-        elements.finishBtn.querySelector('.fa-check').classList.remove('d-none');
-        elements.finishBtn.querySelector('.spinner-border').classList.add('d-none');
-
-        setTimeout(initializeCamera, 500);
-    }
 
     $('#loginForm').submit(function (e) {
         e.preventDefault();
@@ -655,7 +376,6 @@
             contentType: 'application/json',
             data: JSON.stringify({ email, password }),
             success: function (response) {
-                    authToken = response.token;
                     showNotification("Login successful", "success");
                     window.location.href = '/dashboard';
             },
@@ -672,7 +392,7 @@
     });
 
     function showNotification(message, type) {
-        const alert = elements.errorMessage;
+        const alert = document.getElementById('errorMessage');
         alert.textContent = message;
         alert.classList.remove('d-none', 'alert-success', 'alert-danger');
         alert.classList.add(type === "success" ? 'alert-success' : 'alert-danger');

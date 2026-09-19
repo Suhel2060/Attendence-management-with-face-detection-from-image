@@ -32,6 +32,9 @@ Route::get('/login', [AuthController::class,'index']);
 
 Route::post('/login', [AuthController::class, 'login']);
 
+Route::get('/attendencethis', [AttendenceController::class, 'index']);
+Route::post('/attendencethis/identify', [AttendenceController::class, 'identify']);
+Route::post('/attendencethis', [AttendenceController::class, 'attendence']);
 
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');

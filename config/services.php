@@ -33,6 +33,15 @@ return [
     'face_api' => [
         'url' => env('FACE_API_URL', 'http://localhost:8001'),
         'timeout' => 10,
+        'enroll_timeout' => 60,
     ],
+
+    'face_api_backup' => [
+        'url' => env('FACE_API_BACKUP_URL', 'http://localhost:8002'),
+        'timeout' => 10,
+        'enroll_timeout' => 60,
+    ],
+
+    'face_api_active' => env('FACE_ACTIVE_API', 'primary'),
 
 ];
